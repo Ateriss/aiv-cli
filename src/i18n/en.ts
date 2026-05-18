@@ -204,6 +204,21 @@ export const en = {
   contextGenerateWritten: (file: string) => `  ${file} written.`,
   contextGenerateProviderError: (envVar: string) => `Missing AI key: ${envVar}. Check your provider config.`,
 
+  // ── precheck command ───────────────────────────────────────────────────────
+  precheckTitle: (branch: string, base: string) => `\n  aiv precheck — ${branch} → ${base}\n`,
+  precheckNotGitRepo: 'Not a git repository.',
+  precheckBuilding: (base: string) => `Building diff against ${base}...`,
+  precheckDiffBuilt: (files: number) => `Diff ready: ${files} file(s) changed`,
+  precheckDiffFailed: (msg: string) => `Failed to build local diff: ${msg}`,
+  precheckNoChanges: 'No changes detected against base branch.',
+  precheckSelectAction: 'What would you like to do?',
+  precheckCreatingPR: 'Creating PR on GitHub...',
+  precheckPRCreated: (url: string) => `  PR created: ${url}`,
+  precheckPRFailed: (msg: string) => `Failed to create PR: ${msg}`,
+  precheckSavingChecklist: 'Saving checklist...',
+  precheckChecklistSaved: (path: string) => `  Checklist saved to ${path}`,
+  precheckMissingConfig: 'GitHub owner/repo not configured. Use --owner and --repo or configure in .aiv/config.yml',
+
   // ── agents command ─────────────────────────────────────────────────────────
   agentsTitle: '\n  aiv — Available Agents\n',
   agentsColAgent: 'Agent',

@@ -94,13 +94,58 @@ export async function selectMergeStrategy(message: string): Promise<MergeStrateg
   return answers['strategy'] as MergeStrategy;
 }
 
+export type PrecheckAction = 'create_pr' | 'save_checklist' | 'skip';
+
+export async function selectPrecheckAction(message: string, needsPush: boolean): Promise<PrecheckAction> {
+  const inquirer = await getInquirer();
+  const prLabel = needsPush
+    ? chalk.cyan('🚀  Push y crear PR en GitHub')
+    : chalk.cyan('🚀  Crear PR en GitHub');
+  const answers = await inquirer.prompt([{
+    type: 'list',
+    name: 'action',
+    message,
+    choices: [
+      { name: prLabel,                                         value: 'create_pr',      short: 'Crear PR' },
+      { name: chalk.yellow('📋  Guardar checklist en .aiv/'), value: 'save_checklist', short: 'Guardar Checklist' },
+      new inquirer.Separator('─'.repeat(42)),
+      { name: chalk.dim('↩  Skip'),                           value: 'skip',           short: 'Skip' },
+    ],
+    pageSize: 4,
+    loop: false,
+  }]);
+  return answers['action'] as PrecheckAction;
+}
+
+export async function promptPRDetails(defaultTitle: string): Promise<{ title: string; body: string }> {
+  const inquirer = await getInquirer();
+  const answers = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'title',
+      message: 'PR title:',
+      default: defaultTitle,
+    },
+    {
+      type: 'input',
+      name: 'body',
+      message: 'PR description (optional, Enter to skip):',
+      default: '',
+    },
+  ]);
+  return {
+    title: answers['title'] as string,
+    body: answers['body'] as string,
+  };
+}
+
 export async function confirmReview(pr: PullRequest, label: string): Promise<boolean> {
   const inquirer = await getInquirer();
 
   const answers = await inquirer.prompt([{
     type: 'confirm',
     name: 'ok',
-    message: `${label} ${chalk.cyan(`#${pr.number}`)} — ${pr.title}?`,
+    message: `${label} ${chalk.cyan('#' + pr.number)} — ${pr.title}?`,
     default: true,
   }]);
 

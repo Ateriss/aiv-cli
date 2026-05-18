@@ -26,18 +26,27 @@ export function parseGithubUrl(url: string): RepoInfo | null {
   return null;
 }
 
+const GITIGNORE_ENTRIES = [
+  '.aiv/tree.json',     // auto-generated snapshot — large, not useful in diffs
+  '.aiv/checklist.md',  // personal pre-PR draft — not team-relevant
+];
+
 export function appendGitignore(cwd: string): void {
   const gitignorePath = path.join(cwd, '.gitignore');
-  const entry = '.aiv/';
 
-  if (!fs.existsSync(gitignorePath)) {
-    fs.writeFileSync(gitignorePath, entry + '\n', 'utf8');
-    return;
-  }
+  const current = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, 'utf8')
+    : '';
 
-  const content = fs.readFileSync(gitignorePath, 'utf8');
-  if (!content.includes('.aiv')) {
-    fs.appendFileSync(gitignorePath, `\n# aiv local context\n${entry}\n`, 'utf8');
+  const missing = GITIGNORE_ENTRIES.filter(e => !current.includes(e));
+  if (missing.length === 0) return;
+
+  const block = '\n# aiv — auto-generated / local-only files\n' + missing.join('\n') + '\n';
+
+  if (fs.existsSync(gitignorePath)) {
+    fs.appendFileSync(gitignorePath, block, 'utf8');
+  } else {
+    fs.writeFileSync(gitignorePath, block.trimStart(), 'utf8');
   }
 }
 

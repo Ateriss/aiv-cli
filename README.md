@@ -29,6 +29,10 @@ It sends the diff to three specialized AI agents in parallel — one focused on 
 - A payroll mutation that doesn't call `auditLog()` as required by your rules
 - A function moved to a shared module that now exposes internal state to layers that shouldn't see it
 
+**Two perspectives, one tool:**
+
+aiv covers both sides of the code review workflow. As a **reviewer**, run `aiv review` to analyze an open PR and act directly from the terminal — approve, request changes, post the report as a comment, or merge. As the **author**, run `aiv check` before opening a PR to catch issues in your own branch first. If the report looks good, create the PR directly from the terminal; if not, save a `.aiv/checklist.md` with all findings as checkboxes so you know exactly what to fix.
+
 **What happens after the review:**
 
 Once the report is in, aiv lets you act on it directly from the terminal — approve the PR, request changes, post the full report as a formatted GitHub comment, or merge with your preferred strategy (squash, merge, rebase). If you've already reviewed the PR in a previous session, aiv detects the cached analysis in the PR comments and asks if you want to reuse it instead of re-running the agents.
@@ -43,6 +47,8 @@ Once the report is in, aiv lets you act on it directly from the terminal — app
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Commands Reference](#commands-reference)
+  - [aiv review](#aiv-review)
+  - [aiv check](#aiv-check)
 - [Configuration](#configuration)
   - [Global Config](#global-config)
   - [Repo Config](#repo-config)
@@ -122,13 +128,22 @@ aiv context generate
 aiv prs
 ```
 
-**5. Review a PR:**
+**5. Review a PR (as a reviewer):**
 
 ```bash
 aiv review 42
 ```
 
 After the report, aiv asks if you want to approve, request changes, post the report as a PR comment, or merge directly from the terminal.
+
+**Or: analyze your own branch before opening a PR (as the author):**
+
+```bash
+aiv check           # compares current branch vs origin/main (auto-detected)
+aiv check qa        # compares current branch vs origin/qa
+```
+
+After the report, aiv asks: create the PR on GitHub or save a checklist of findings to `.aiv/checklist.md`.
 
 ---
 
@@ -142,7 +157,8 @@ Every command has a short alias. Long and short forms are identical.
 |-----------|-------|-------------|
 | `aiv init` | `aiv i` | Initialize aiv globally and in the current repo |
 | `aiv prs` | `aiv p` | List open PRs, then optionally review one |
-| `aiv review [pr-number]` | `aiv r` | Review a PR or pick interactively |
+| `aiv review [pr-number]` | `aiv r` | Review a PR or pick interactively (reviewer perspective) |
+| `aiv check [base-branch]` | `aiv c` | Analyze local diff before opening a PR (author perspective) |
 | `aiv agents` | `aiv a` | List available agents and their focus areas |
 
 ### Context
@@ -230,6 +246,63 @@ aiv review 42 --json          # raw JSON, no interactive prompt
 ```
 
 If a previous aiv analysis exists as a comment on the PR, aiv asks whether to reuse it or run a fresh analysis. After the report, the post-review action menu lets you approve, request changes, post the report as a comment, or skip.
+
+---
+
+### `aiv check`
+
+Analyzes your local branch against a remote base branch **before** opening a PR — the author's equivalent of `aiv review`.
+
+```bash
+aiv check              # auto-detects base (origin/main, origin/master, origin/develop)
+aiv c
+
+aiv check qa           # compare current branch vs origin/qa
+aiv check main         # compare current branch vs origin/main
+aiv check --agent security           # run only the security agent
+aiv check qa --json                  # raw JSON output
+```
+
+The diff is always computed against the **remote** branch (`origin/<base>`), not your local copy, so findings reflect the actual gap that would be in the PR.
+
+After the report, aiv detects whether your branch has unpushed commits and adjusts the menu accordingly:
+
+```
+# If there are unpushed commits:
+? What would you like to do?
+❯ 🚀  Push y crear PR en GitHub
+  📋  Guardar checklist en .aiv/
+  ────────────────────────────────────────
+  ↩  Skip
+
+# If the branch is already up to date with the remote:
+? What would you like to do?
+❯ 🚀  Crear PR en GitHub
+  📋  Guardar checklist en .aiv/
+  ────────────────────────────────────────
+  ↩  Skip
+```
+
+- **Push y crear PR** — runs `git push origin <branch>`, then creates the PR via GitHub API. If the push fails, it stops before attempting PR creation.
+- **Crear PR** — branch is already pushed; creates the PR directly without a push.
+- **Guardar checklist** — writes `.aiv/checklist.md` with all findings as `- [ ]` checkboxes, grouped by severity. The `.aiv/` folder is gitignored so the file never reaches the remote.
+
+**Example checklist (`aiv/checklist.md`):**
+
+```markdown
+# aiv Check: feature/payments → main
+Generated: 2026-05-18  |  Risk: HIGH (74/100)
+
+## Critical & High
+
+- [ ] **[HIGH]** Missing idempotency key on retry — `src/payments/retry.ts`
+  > Pass a stable key derived from the original transaction ID.
+- [ ] **[CRITICAL]** auditLog() not called in retry path
+
+## Medium
+
+- [ ] **[MEDIUM]** Direct database write outside billing module — `src/db/payments.ts`
+```
 
 ---
 
@@ -867,6 +940,14 @@ business_rules:
     forbidden_patterns: [skipFraudCheck, directInventoryWrite]
 ```
 
+### Check your own branch before opening a PR
+
+```bash
+aiv check qa       # or whatever branch you're merging into
+```
+
+Running `aiv check` before opening a PR catches issues that would otherwise land in the reviewer's lap. If the report shows problems, save a checklist to `.aiv/checklist.md`, fix, and run `aiv check` again. Once clean, aiv detects whether the branch needs a push and handles it — you go from analysis to open PR in one step.
+
 ### Post the report as a PR comment
 
 After reviewing, choose **Post as PR comment** to make the findings visible to the whole team directly in GitHub. The comment is also used as a cache — the next time anyone runs `aiv review` on the same PR, aiv detects it and offers to skip the AI calls.
@@ -908,14 +989,13 @@ Fewer agents = faster, cheaper, more focused output.
 
 ### Commit `.aiv/` to the repository
 
-Committing `config.yml`, `rules.yml`, and `context.md` means every team member gets identical review behavior with no local setup. Only exclude `tree.json`:
+Committing `config.yml`, `rules.yml`, and `context.md` means every team member gets identical review behavior with no local setup. `aiv init` automatically gitignores only the files that shouldn't be shared:
 
 ```
-# .gitignore
-.aiv/tree.json
+# added automatically by aiv init
+.aiv/tree.json       # auto-generated snapshot — large, noise in diffs
+.aiv/checklist.md    # personal pre-PR draft — not team-relevant
 ```
-
-`aiv init` adds this entry automatically.
 
 ### CI integration with `--json`
 
@@ -943,7 +1023,7 @@ Its value is **semantic understanding**: catching business rule violations, arch
 src/
   agents/          — business, architecture, security reviewers
   cli/
-    commands/      — init, prs, review, config, context, agents
+    commands/      — init, prs, review, check, config, context, agents
     banner.ts      — ASCII welcome banner
     renderer.ts    — terminal renderer + GitHub comment builder
     selector.ts    — interactive PR/action picker (inquirer)
@@ -953,7 +1033,7 @@ src/
     generator.ts   — AI-powered context + rules generation
     manager.ts     — context reader + refreshContextFiles helper
     tree.ts        — file tree scanner
-  git/             — GitHub REST client + remote detection
+  git/             — GitHub REST client, remote detection, local diff builder
   i18n/            — EN/ES translations (all user-facing strings)
   orchestrator/    — runs agents in parallel, aggregates results
   providers/

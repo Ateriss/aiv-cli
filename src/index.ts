@@ -8,6 +8,7 @@ import { reviewCommand } from './cli/commands/review';
 import { contextCommand } from './cli/commands/context';
 import { configCommand } from './cli/commands/config';
 import { agentsCommand } from './cli/commands/agents';
+import { checkCommand } from './cli/commands/check';
 
 initLang();
 printBanner();
@@ -25,5 +26,6 @@ program.addCommand(reviewCommand());
 program.addCommand(contextCommand());
 program.addCommand(configCommand());
 program.addCommand(agentsCommand());
+program.addCommand(checkCommand());
 
 program.parse(process.argv);

@@ -107,6 +107,26 @@ export class GithubClient {
     if (!res.ok) await this.throwError(res, `merge PR #${prNumber}`);
   }
 
+  async createPR(
+    owner: string,
+    repo: string,
+    title: string,
+    body: string,
+    head: string,
+    base: string,
+  ): Promise<{ number: number; url: string }> {
+    const url = `${GITHUB_API}/repos/${owner}/${repo}/pulls`;
+    const { default: fetch } = await import('node-fetch');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { ...this.headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, head, base }),
+    }) as unknown as Response;
+    if (!res.ok) await this.throwError(res, 'create PR');
+    const data = await res.json() as any;
+    return { number: data.number, url: data.html_url };
+  }
+
   async submitReview(
     owner: string,
     repo: string,

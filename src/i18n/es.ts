@@ -206,6 +206,21 @@ export const es: TranslationKeys = {
   contextGenerateWritten: (file: string) => `  ${file} escrito.`,
   contextGenerateProviderError: (envVar: string) => `Clave de IA faltante: ${envVar}. Revisa tu config de proveedor.`,
 
+  // ── precheck command ───────────────────────────────────────────────────────
+  precheckTitle: (branch: string, base: string) => `\n  aiv precheck — ${branch} → ${base}\n`,
+  precheckNotGitRepo: 'No es un repositorio git.',
+  precheckBuilding: (base: string) => `Construyendo diff contra ${base}...`,
+  precheckDiffBuilt: (files: number) => `Diff listo: ${files} archivo(s) modificado(s)`,
+  precheckDiffFailed: (msg: string) => `Error al construir el diff local: ${msg}`,
+  precheckNoChanges: 'No se detectaron cambios contra la rama base.',
+  precheckSelectAction: '¿Qué deseas hacer?',
+  precheckCreatingPR: 'Creando PR en GitHub...',
+  precheckPRCreated: (url: string) => `  PR creado: ${url}`,
+  precheckPRFailed: (msg: string) => `Error al crear el PR: ${msg}`,
+  precheckSavingChecklist: 'Guardando checklist...',
+  precheckChecklistSaved: (path: string) => `  Checklist guardado en ${path}`,
+  precheckMissingConfig: 'Owner/repo de GitHub no configurado. Usa --owner y --repo o configúralo en .aiv/config.yml',
+
   // ── agents command ─────────────────────────────────────────────────────────
   agentsTitle: '\n  aiv — Agentes Disponibles\n',
   agentsColAgent: 'Agente',
