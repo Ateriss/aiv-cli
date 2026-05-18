@@ -1,5 +1,6 @@
 import { AgentResult, AgentFinding, PRDiff, AivRules } from '../types';
 import { LLMProvider } from '../providers/base';
+import { getLang } from '../i18n';
 
 export interface AgentContext {
   projectContext: string;
@@ -35,6 +36,10 @@ export abstract class BaseAgent {
       .filter(f => f.patch)
       .map(f => `### ${f.filename}\n\`\`\`diff\n${f.patch}\n\`\`\``)
       .join('\n\n');
+
+    const langInstruction = getLang() === 'es'
+      ? '\n\nIMPORTANT: Respond in Spanish. All string values in the JSON (summary, title, description, suggestion, possibleRegressions) must be written in Spanish.'
+      : '';
 
     return `## PR: #${ctx.diff.pr.number} — ${ctx.diff.pr.title}
 
@@ -83,7 +88,7 @@ Analyze the above and return a JSON response matching this schema:
   "possibleRegressions": ["string"]
 }
 
-Return ONLY valid JSON. No markdown fences, no explanation outside the JSON.`;
+Return ONLY valid JSON. No markdown fences, no explanation outside the JSON.${langInstruction}`;
   }
 
   protected parseResponse(raw: string): AgentResult {

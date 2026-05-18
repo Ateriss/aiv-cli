@@ -9,4 +9,5 @@ export default defineConfig({
   splitting: false,
   sourcemap: false,
   dts: false,
+  noExternal: [/.*/],
 });

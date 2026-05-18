@@ -42,7 +42,8 @@ export async function selectPR(prs: PullRequest[], message: string): Promise<Pul
   return selected === CANCEL ? null : (prs.find(pr => pr.number === selected) ?? null);
 }
 
-export type PostReviewAction = 'approve' | 'request_changes' | 'skip';
+export type PostReviewAction = 'approve' | 'request_changes' | 'post_comment' | 'skip';
+export type MergeStrategy = 'merge' | 'squash' | 'rebase';
 
 export async function selectPostReviewAction(message: string): Promise<PostReviewAction> {
   const inquirer = await getInquirer();
@@ -52,16 +53,45 @@ export async function selectPostReviewAction(message: string): Promise<PostRevie
     name: 'action',
     message,
     choices: [
-      { name: chalk.green('✔  Approve PR'),        value: 'approve',          short: 'Approve' },
-      { name: chalk.yellow('⚑  Request Changes'),  value: 'request_changes',  short: 'Request Changes' },
+      { name: chalk.green('✔  Approve PR'),             value: 'approve',          short: 'Approve' },
+      { name: chalk.yellow('⚑  Request Changes'),       value: 'request_changes',  short: 'Request Changes' },
+      { name: chalk.cyan('💬  Post as PR comment'),     value: 'post_comment',     short: 'Post Comment' },
       new inquirer.Separator('─'.repeat(42)),
-      { name: chalk.dim('↩  Skip'),                value: 'skip',             short: 'Skip' },
+      { name: chalk.dim('↩  Skip'),                     value: 'skip',             short: 'Skip' },
     ],
-    pageSize: 4,
+    pageSize: 5,
     loop: false,
   }]);
 
   return answers['action'] as PostReviewAction;
+}
+
+export async function confirmMerge(message: string): Promise<boolean> {
+  const inquirer = await getInquirer();
+  const answers = await inquirer.prompt([{
+    type: 'confirm',
+    name: 'ok',
+    message,
+    default: false,
+  }]);
+  return Boolean(answers['ok']);
+}
+
+export async function selectMergeStrategy(message: string): Promise<MergeStrategy> {
+  const inquirer = await getInquirer();
+  const answers = await inquirer.prompt([{
+    type: 'list',
+    name: 'strategy',
+    message,
+    choices: [
+      { name: chalk.cyan('Squash and merge'),  value: 'squash', short: 'Squash' },
+      { name: 'Merge commit',                  value: 'merge',  short: 'Merge' },
+      { name: chalk.dim('Rebase and merge'),   value: 'rebase', short: 'Rebase' },
+    ],
+    pageSize: 3,
+    loop: false,
+  }]);
+  return answers['strategy'] as MergeStrategy;
 }
 
 export async function confirmReview(pr: PullRequest, label: string): Promise<boolean> {

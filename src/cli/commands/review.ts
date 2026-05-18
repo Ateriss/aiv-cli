@@ -2,13 +2,13 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { resolveConfig, loadRules, getGithubToken, isInitialized } from '../../config';
-import type { ResolvedConfig } from '../../types';
+import type { ResolvedConfig, ReviewResult } from '../../types';
 import { GithubClient } from '../../git/github';
 import { detectRepoInfo } from '../../git/utils';
 import { Orchestrator } from '../../orchestrator';
 import { ContextManager, refreshContextFiles } from '../../context/manager';
-import { renderReview } from '../renderer';
-import { selectPR, selectPostReviewAction } from '../selector';
+import { renderReview, buildAivComment } from '../renderer';
+import { selectPR, selectPostReviewAction, confirmMerge, selectMergeStrategy } from '../selector';
 import { t } from '../../i18n';
 
 // ─── Shared review runner (used by prs.ts and review command) ─────────────────
@@ -27,15 +27,14 @@ export async function runReview(opts: RunReviewOptions): Promise<void> {
   const { prNumber, owner, repo, config, token } = opts;
   const rules = loadRules();
   const activeAgents = opts.agents ?? ['business', 'architecture', 'security'];
+  const client = new GithubClient(token);
 
   console.log(chalk.bold(t().reviewTitle(prNumber)));
   console.log(chalk.dim(`  ${t().reviewAccount(config.github.accountName, config.github.token_env)}\n`));
 
   const fetchSpinner = ora(t().reviewFetching(prNumber, `${owner}/${repo}`)).start();
   let prDiff: Awaited<ReturnType<GithubClient['getPRDiff']>>;
-
   try {
-    const client = new GithubClient(token);
     prDiff = await client.getPRDiff(owner, repo, prNumber);
     fetchSpinner.succeed(t().reviewLoaded(chalk.cyan(prDiff.pr.title), prDiff.files.length));
   } catch (e: any) {
@@ -43,49 +42,110 @@ export async function runReview(opts: RunReviewOptions): Promise<void> {
     return;
   }
 
-  const ctxSpinner = ora(t().reviewLoadingContext).start();
-  const context = new ContextManager(process.cwd()).buildReviewContext(prDiff);
-  ctxSpinner.succeed(t().reviewContextLoaded);
+  const result = await resolveResult(client, { owner, repo, prNumber }, config, rules, prDiff, activeAgents, opts.json);
+  if (!result) return;
 
-  console.log(chalk.dim(t().reviewRunningAgents(activeAgents.join(', '))));
-
-  try {
-    const result = await new Orchestrator(config, rules).run(prDiff, context, activeAgents);
-    if (opts.json) {
-      console.log(JSON.stringify(result, null, 2));
-      return;
-    }
-    renderReview(result);
-  } catch (e: any) {
-    console.log(chalk.red(t().reviewFailed(e.message)));
+  if (opts.json) {
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 
+  renderReview(result);
   if (!process.stdout.isTTY) return;
 
   const action = await selectPostReviewAction(t().postReviewSelectAction);
   if (action === 'skip') return;
 
-  const event = action === 'approve' ? 'APPROVE' : 'REQUEST_CHANGES';
-  const submitSpinner = ora(t().postReviewSubmitting).start();
-
-  try {
-    await new GithubClient(token).submitReview(owner, repo, prNumber, event);
-    if (action === 'approve') {
-      submitSpinner.succeed(chalk.green(t().postReviewApproved(prNumber)));
-    } else {
-      submitSpinner.succeed(chalk.yellow(t().postReviewChangesRequested(prNumber)));
-    }
-  } catch (e: any) {
-    submitSpinner.fail(chalk.red(t().postReviewFailed(e.message)));
+  if (action === 'post_comment') {
+    await doPostComment(client, owner, repo, prNumber, result);
     return;
   }
 
+  const submitted = await doSubmitReview(client, owner, repo, prNumber, action);
+  if (!submitted) return;
+
   if (action === 'approve') {
-    const refreshSpinner = ora(t().postReviewRefreshing).start();
-    await refreshContextFiles(process.cwd());
-    refreshSpinner.succeed(chalk.green(t().postReviewRefreshed));
+    await doApproveFlow(client, owner, repo, prNumber, result);
   }
+}
+
+interface RepoRef { owner: string; repo: string; prNumber: number; }
+
+async function resolveResult(
+  client: GithubClient,
+  ref: RepoRef,
+  config: ResolvedConfig, rules: ReturnType<typeof loadRules>,
+  prDiff: Awaited<ReturnType<GithubClient['getPRDiff']>>,
+  activeAgents: string[], json?: boolean,
+): Promise<ReviewResult | null> {
+  const { owner, repo, prNumber } = ref;
+  if (!json && process.stdout.isTTY) {
+    const cached = await client.findAivReview(owner, repo, prNumber);
+    if (cached) {
+      console.log(chalk.cyan(`\n  ${t().reviewCachedFound}`));
+      const useCached = await confirmMerge(t().reviewCachedUse);
+      if (useCached) {
+        console.log(chalk.dim(`  ${t().reviewCachedUsing}`));
+        return cached;
+      }
+      console.log(chalk.dim(`  ${t().reviewCachedSkipping}`));
+    }
+  }
+
+  const ctxSpinner = ora(t().reviewLoadingContext).start();
+  const context = new ContextManager(process.cwd()).buildReviewContext(prDiff);
+  ctxSpinner.succeed(t().reviewContextLoaded);
+  console.log(chalk.dim(t().reviewRunningAgents(activeAgents.join(', '))));
+
+  try {
+    return await new Orchestrator(config, rules).run(prDiff, context, activeAgents);
+  } catch (e: any) {
+    console.log(chalk.red(t().reviewFailed(e.message)));
+    return null;
+  }
+}
+
+async function doPostComment(client: GithubClient, owner: string, repo: string, prNumber: number, result: ReviewResult): Promise<void> {
+  const spinner = ora(t().postReviewPostingComment).start();
+  try {
+    await client.postComment(owner, repo, prNumber, buildAivComment(result));
+    spinner.succeed(chalk.green(t().postReviewCommentPosted(prNumber)));
+  } catch (e: any) {
+    spinner.fail(chalk.red(t().postReviewCommentFailed(e.message)));
+  }
+}
+
+async function doSubmitReview(client: GithubClient, owner: string, repo: string, prNumber: number, action: 'approve' | 'request_changes'): Promise<boolean> {
+  const event = action === 'approve' ? 'APPROVE' : 'REQUEST_CHANGES';
+  const spinner = ora(t().postReviewSubmitting).start();
+  try {
+    await client.submitReview(owner, repo, prNumber, event);
+    const msg = action === 'approve' ? t().postReviewApproved(prNumber) : t().postReviewChangesRequested(prNumber);
+    const color = action === 'approve' ? chalk.green : chalk.yellow;
+    spinner.succeed(color(msg));
+    return true;
+  } catch (e: any) {
+    spinner.fail(chalk.red(t().postReviewFailed(e.message)));
+    return false;
+  }
+}
+
+async function doApproveFlow(client: GithubClient, owner: string, repo: string, prNumber: number, result: ReviewResult): Promise<void> {
+  const wantsMerge = await confirmMerge(t().postReviewMergeConfirm);
+  if (wantsMerge) {
+    await doPostComment(client, owner, repo, prNumber, result);
+    const strategy = await selectMergeStrategy(t().postReviewSelectMerge);
+    const mergeSpinner = ora(t().postReviewMerging(prNumber)).start();
+    try {
+      await client.mergePR(owner, repo, prNumber, strategy);
+      mergeSpinner.succeed(chalk.green(t().postReviewMerged(prNumber)));
+    } catch (e: any) {
+      mergeSpinner.fail(chalk.red(t().postReviewMergeFailed(e.message)));
+    }
+  }
+  const refreshSpinner = ora(t().postReviewRefreshing).start();
+  await refreshContextFiles(process.cwd());
+  refreshSpinner.succeed(chalk.green(t().postReviewRefreshed));
 }
 
 // ─── CLI command ──────────────────────────────────────────────────────────────

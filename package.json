@@ -1,6 +1,6 @@
 {
-  "name": "aiv",
-  "version": "0.1.0",
+  "name":  "@ateriss_/aiv-cli",
+  "version": "1.0.1",
   "description": "AI-powered PR reviewer CLI — local-first, multi-agent semantic analysis",
   "main": "dist/index.js",
   "bin": {

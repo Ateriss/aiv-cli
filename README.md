@@ -1,17 +1,39 @@
 # aiv — AI PR Reviewer
 
-A local-first, multi-agent CLI for reviewing GitHub pull requests using any supported AI provider. Runs three specialized agents in parallel (Business, Architecture, Security) and produces a structured risk report with findings, suggestions, and an executive summary.
-
 ```
- █████╗ ██╗    ██████╗ ██████╗     ██████╗ ███████╗██╗   ██╗██╗███████╗██╗    ██╗███████╗██████╗ 
+ █████╗ ██╗    ██████╗ ██████╗     ██████╗ ███████╗██╗   ██╗██╗███████╗██╗    ██╗███████╗██████╗
 ██╔══██╗██║    ██╔══██╗██╔══██╗    ██╔══██╗██╔════╝██║   ██║██║██╔════╝██║    ██║██╔════╝██╔══██╗
 ███████║██║    ██████╔╝██████╔╝    ██████╔╝█████╗  ██║   ██║██║█████╗  ██║ █╗ ██║█████╗  ██████╔╝
 ██╔══██║██║    ██╔═══╝ ██╔══██╗    ██╔══██╗██╔══╝  ╚██╗ ██╔╝██║██╔══╝  ██║███╗██║██╔══╝  ██╔══██╗
 ██║  ██║██║    ██║     ██║  ██║    ██║  ██║███████╗ ╚████╔╝ ██║███████╗╚███╔███╔╝███████╗██║  ██║
 ╚═╝  ╚═╝╚═╝    ╚═╝     ╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝ ╚══════╝╚═╝  ╚═╝
-                                                                                                
-													                                                             by Ateriss
+
+   by Ateriss
 ```
+
+---
+
+## What is aiv?
+
+Code review is one of the most important quality gates in a software team — and also one of the most time-consuming. Reviewers need to understand the business context, track architectural decisions, spot security risks, and catch regressions, all while reading through a diff that may span dozens of files.
+
+**aiv** is a local-first CLI that runs that analysis for you, before a human ever opens the PR.
+
+It sends the diff to three specialized AI agents in parallel — one focused on **business logic and domain rules**, one on **architecture and structural patterns**, and one on **security vulnerabilities** — and returns a structured risk report with severity-rated findings, specific suggestions per file, and an executive summary. The report is anchored to your project: aiv reads your `context.md` (project background, architecture decisions, sensitive zones) and `rules.yml` (custom business rules, required calls, forbidden patterns) so findings are relevant to your codebase, not just generic linting advice.
+
+**What aiv catches that linters miss:**
+
+- A retry loop that could cause duplicate charges because it skips the idempotency check your team agreed on
+- A service that imports directly from a handler, breaking the layer contract
+- A new endpoint that reads user data without going through the authorization middleware
+- A payroll mutation that doesn't call `auditLog()` as required by your rules
+- A function moved to a shared module that now exposes internal state to layers that shouldn't see it
+
+**What happens after the review:**
+
+Once the report is in, aiv lets you act on it directly from the terminal — approve the PR, request changes, post the full report as a formatted GitHub comment, or merge with your preferred strategy (squash, merge, rebase). If you've already reviewed the PR in a previous session, aiv detects the cached analysis in the PR comments and asks if you want to reuse it instead of re-running the agents.
+
+**Works with any AI provider.** Claude, OpenAI, Gemini, Groq, Mistral, DeepSeek, Kimi, Ollama, or any OpenAI-compatible endpoint. Mix providers per agent — use a fast model for routine checks and a powerful one for security. Configure a fallback chain so a quota error on one provider silently switches to the next without losing the run.
 
 ---
 
@@ -22,13 +44,21 @@ A local-first, multi-agent CLI for reviewing GitHub pull requests using any supp
 - [Quick Start](#quick-start)
 - [Commands Reference](#commands-reference)
 - [Configuration](#configuration)
-  - [Global Config](#global-config-aivconfig-yml)
-  - [Repo Config](#repo-config-aivconfigyml)
-  - [Rules](#rules-aivrules-yml)
-  - [Context](#context-aivcontextmd)
+  - [Global Config](#global-config)
+  - [Repo Config](#repo-config)
+  - [Rules](#rules)
+  - [Context](#context)
 - [GitHub Account Management](#github-account-management)
 - [AI Providers](#ai-providers)
+  - [Built-in: Claude](#claude-default)
+  - [Built-in: OpenAI](#openai)
+  - [Built-in: Gemini](#google-gemini)
+  - [OpenAI-compatible (custom)](#openai-compatible-providers)
+  - [Per-agent assignment](#per-agent-provider-assignment)
+  - [Fallback chain](#fallback-chain)
+  - [Mock](#mock-offline-testing)
 - [Review Output](#review-output)
+- [Post-review Actions](#post-review-actions)
 - [Multi-language](#multi-language)
 - [Environment Variables](#environment-variables)
 - [Error Reference](#error-reference)
@@ -39,7 +69,7 @@ A local-first, multi-agent CLI for reviewing GitHub pull requests using any supp
 ## Requirements
 
 - Node.js 18 or higher
-- A GitHub personal access token with `repo` scope
+- A GitHub personal access token with `repo` scope (or `public_repo` for public repos)
 - An API key for at least one supported AI provider (see [AI Providers](#ai-providers))
 
 ---
@@ -47,17 +77,7 @@ A local-first, multi-agent CLI for reviewing GitHub pull requests using any supp
 ## Installation
 
 ```bash
-npm install -g aiv
-```
-
-Or clone and build locally:
-
-```bash
-git clone https://github.com/your-org/aiv-cli
-cd aiv-cli
-npm install
-npm run build
-npm link
+npm install -g @ateriss_/aiv-cli
 ```
 
 ---
@@ -72,32 +92,43 @@ aiv init
 ```
 
 This creates:
-- `~/.aiv/config.yml` — global config (AI provider, GitHub accounts)
+- `~/.aiv/config.yml` — global config (AI providers, GitHub accounts)
 - `.aiv/config.yml` — repo config (owner, repo, account override)
 - `.aiv/rules.yml` — custom review rules for agents
 - `.aiv/context.md` — auto-generated project context
 - `.aiv/tree.json` — project file structure snapshot
 
-**2. Set your API key and GitHub token:**
+**2. Set your API key and GitHub token as persistent environment variables:**
 
 ```bash
+# macOS / Linux (add to ~/.bashrc or ~/.zshrc)
 export CLAUDE_API_KEY=sk-ant-...
 export GITHUB_TOKEN=ghp_...
+
+# Windows (PowerShell — persists across sessions)
+[System.Environment]::SetEnvironmentVariable("CLAUDE_API_KEY", "sk-ant-...", "User")
+[System.Environment]::SetEnvironmentVariable("GITHUB_TOKEN", "ghp_...", "User")
 ```
 
-**3. List open pull requests:**
+**3. (Optional) Let AI generate your context and rules:**
+
+```bash
+aiv context generate
+```
+
+**4. List open pull requests:**
 
 ```bash
 aiv prs
 ```
 
-**4. Review a PR:**
+**5. Review a PR:**
 
 ```bash
 aiv review 42
 ```
 
-That's it. The three agents run in parallel and print a full report.
+After the report, aiv asks if you want to approve, request changes, post the report as a PR comment, or merge directly from the terminal.
 
 ---
 
@@ -105,150 +136,135 @@ That's it. The three agents run in parallel and print a full report.
 
 Every command has a short alias. Long and short forms are identical.
 
-| Long form                              | Short alias   | Description                                       |
-|----------------------------------------|---------------|---------------------------------------------------|
-| `aiv init`                             | `aiv i`       | Initialize aiv in the current repo                |
-| `aiv prs`                              | `aiv p`       | List open PRs and optionally review one           |
-| `aiv review [pr-number]`               | `aiv r`       | Review a PR or pick one interactively             |
-| `aiv context refresh`                  | `aiv ctx refresh` | Rebuild `context.md` and `tree.json`         |
-| `aiv context show`                     | `aiv ctx show` | Print current `context.md`                      |
-| `aiv config show`                      | `aiv cf show` | Show global and repo config                       |
-| `aiv config set-provider <provider>`   | `aiv cf set-provider` | Switch AI provider                      |
-| `aiv config set-repo <owner> <repo>`   | `aiv cf set-repo` | Set GitHub owner/repo in repo config        |
-| `aiv config set-lang <lang>`           | `aiv cf set-lang` | Change display language (`en` / `es`)       |
-| `aiv config rules`                     | `aiv cf rules` | Print `rules.yml`                               |
-| `aiv config accounts`                  | `aiv cf accounts` | List GitHub accounts                        |
-| `aiv config add-account <name>`        | `aiv cf add-account` | Add a GitHub account                     |
-| `aiv config remove-account <name>`     | `aiv cf remove-account` | Remove a GitHub account               |
-| `aiv config default-account <name>`    | `aiv cf default-account` | Set global default account           |
-| `aiv config use-account <name>`        | `aiv cf use-account` | Use an account for this repo             |
-| `aiv agents`                           | `aiv a`       | List available agents and their focus areas       |
+### Core
+
+| Long form | Short | Description |
+|-----------|-------|-------------|
+| `aiv init` | `aiv i` | Initialize aiv globally and in the current repo |
+| `aiv prs` | `aiv p` | List open PRs, then optionally review one |
+| `aiv review [pr-number]` | `aiv r` | Review a PR or pick interactively |
+| `aiv agents` | `aiv a` | List available agents and their focus areas |
+
+### Context
+
+| Long form | Short | Description |
+|-----------|-------|-------------|
+| `aiv context refresh` | `aiv ctx refresh` | Rebuild `context.md` and `tree.json` from the codebase |
+| `aiv context show` | `aiv ctx show` | Print current `context.md` |
+| `aiv context generate` | `aiv ctx generate` | Use AI to generate `context.md` and `rules.yml` |
+
+### Config — general
+
+| Long form | Short | Description |
+|-----------|-------|-------------|
+| `aiv config show` | `aiv cf show` | Show global and repo config files |
+| `aiv config set-provider <name>` | `aiv cf set-provider` | Set default AI provider |
+| `aiv config set-repo <owner> <repo>` | `aiv cf set-repo` | Set GitHub owner/repo in repo config |
+| `aiv config set-lang <lang>` | `aiv cf set-lang` | Change display language (`en` / `es`) |
+| `aiv config rules` | `aiv cf rules` | Print `rules.yml` |
+
+### Config — providers
+
+| Long form | Description |
+|-----------|-------------|
+| `aiv config add-provider <name>` | Add or update a provider (built-in or custom OpenAI-compatible) |
+| `aiv config remove-provider <name>` | Remove a custom provider |
+| `aiv config list-providers` | List all configured providers and their status |
+| `aiv config set-agent-provider <agent> [spec]` | Assign a specific provider/model to one agent |
+| `aiv config set-fallback [providers...]` | Set ordered fallback chain for quota/rate errors |
+| `aiv config show-agents` | Show per-agent provider assignments and fallback chain |
+
+### Config — GitHub accounts
+
+| Long form | Description |
+|-----------|-------------|
+| `aiv config accounts` | List GitHub accounts |
+| `aiv config add-account <name>` | Add a GitHub account |
+| `aiv config remove-account <name>` | Remove a GitHub account |
+| `aiv config default-account <name>` | Set global default account |
+| `aiv config use-account <name>` | Use a specific account for this repo |
 
 ---
 
 ### `aiv init`
-
-Initializes aiv globally and in the current repository.
 
 ```bash
 aiv init
 aiv i
 ```
 
-Safe to run in any order — if `~/.aiv/config.yml` already exists it is preserved. Re-running `init` inside a repo always rebuilds `context.md` and `tree.json` to reflect the current state of the project.
+Safe to re-run — if `~/.aiv/config.yml` already exists it is preserved. Re-running inside a repo always rebuilds `context.md` and `tree.json`.
 
 ---
 
 ### `aiv prs`
 
-Fetches and displays open pull requests in a table, then opens an interactive selector.
+Fetches open PRs in a table, then launches an interactive selector.
 
 ```bash
 aiv prs
 aiv p
 
-# Limit results
 aiv prs --limit 10
-
-# Override repo auto-detection
 aiv prs --owner myorg --repo myrepo
-
-# List only, skip interactive selector
-aiv prs --no-select
+aiv prs --no-select           # list only, skip selector
 ```
 
-The table shows PR number, title, author, branch, diff size (`+additions/-deletions`), and creation date. After the table, an interactive prompt lets you select a PR and launch a review without typing a number.
-
-**Repo auto-detection:** aiv reads `git remote get-url origin` to detect the GitHub owner and repo. If the remote is not a GitHub URL or is missing, use `--owner`/`--repo` flags or configure them in `.aiv/config.yml`.
+**Repo auto-detection:** reads `git remote get-url origin`. If it fails, pass `--owner`/`--repo` or set them with `aiv config set-repo`.
 
 ---
 
 ### `aiv review`
 
-Reviews a pull request. Accepts a PR number directly or launches an interactive selector if omitted.
+Reviews a pull request. Omit the number to pick interactively.
 
 ```bash
-# Review by number
 aiv review 42
 aiv r 42
 
-# Interactive selector (fetches open PRs first)
-aiv review
-aiv r
-
-# Override repo
+aiv review                    # interactive selector
 aiv review 42 --owner myorg --repo myrepo
-
-# Run specific agents only
 aiv review 42 --agent security
 aiv review 42 --agent business architecture
-
-# Output raw JSON (useful for scripting and CI)
-aiv review 42 --json
+aiv review 42 --json          # raw JSON, no interactive prompt
 ```
 
-Available agents: `business`, `architecture`, `security`. All three run in parallel by default.
+If a previous aiv analysis exists as a comment on the PR, aiv asks whether to reuse it or run a fresh analysis. After the report, the post-review action menu lets you approve, request changes, post the report as a comment, or skip.
 
 ---
 
 ### `aiv context`
 
-Manages the project context used by agents during reviews.
-
 ```bash
-# Rebuild context.md and tree.json from the current directory
-aiv context refresh
+aiv context refresh            # rebuild from codebase (static analysis)
 aiv ctx refresh
 
-# Print the current context.md
-aiv context show
+aiv context show               # print context.md
 aiv ctx show
+
+aiv context generate           # AI-powered generation
+aiv ctx generate
+aiv ctx generate --context-only
+aiv ctx generate --rules-only
+aiv ctx generate --force       # overwrite without asking
 ```
 
-Run `context refresh` after major structural changes to the project (new modules, new dependencies, large refactors) so agents have accurate background information.
-
----
-
-### `aiv config`
-
-All configuration subcommands. Running `aiv config` or `aiv cf` alone prints help.
-
-```bash
-# Show global and repo config files
-aiv config show
-aiv cf show
-
-# Switch AI provider
-aiv config set-provider openai
-aiv cf set-provider claude
-
-# Set repo owner/repo explicitly
-aiv config set-repo myorg myrepo
-
-# Change display language
-aiv config set-lang es
-aiv config set-lang en
-
-# Show rules.yml
-aiv config rules
-```
+`generate` uses the configured AI provider (or `providers.agents.context` if set) to analyze the project structure and produce a `context.md` and `rules.yml` tailored to your stack. Run it after `init` or whenever the project changes significantly — edit the output only where needed.
 
 ---
 
 ### `aiv agents`
-
-Lists all available agents with their description and focus areas.
 
 ```bash
 aiv agents
 aiv a
 ```
 
-| Agent        | Focus areas                                                              |
-|--------------|--------------------------------------------------------------------------|
-| business     | Business logic, domain invariants, rule violations, functional regressions |
+| Agent | Focus areas |
+|-------|-------------|
+| business | Business logic, domain invariants, rule violations, functional regressions |
 | architecture | Layer violations, coupling, SRP, dependency direction, abstraction quality |
-| security     | Auth bypass, injection, data leakage, OWASP Top 10, sensitive data handling |
+| security | Auth bypass, injection, data leakage, OWASP Top 10, sensitive data handling |
 
 ---
 
@@ -256,36 +272,58 @@ aiv a
 
 aiv uses a two-level configuration system:
 
-| File                  | Scope  | Purpose                                           |
-|-----------------------|--------|---------------------------------------------------|
-| `~/.aiv/config.yml`  | Global | AI providers, GitHub accounts, default settings   |
-| `.aiv/config.yml`    | Repo   | Owner/repo override, account override, token limits |
+| File | Scope | Purpose |
+|------|-------|---------|
+| `~/.aiv/config.yml` | Global | AI providers, GitHub accounts, defaults |
+| `.aiv/config.yml` | Repo | Owner/repo override, account override, token limits |
 
-Repo-level settings always override global defaults.
+Repo settings always override global defaults.
 
 ---
 
-### Global Config (`~/.aiv/config.yml`)
+### Global Config
 
-Created automatically by `aiv init`. Edit manually or use `aiv config` subcommands.
+`~/.aiv/config.yml` — created by `aiv init`, shared across all repos.
 
 ```yaml
 lang: en                        # 'en' or 'es'
 
 providers:
-  default: claude               # 'claude', 'openai', or 'mock'
+  default: claude               # active provider
+  fallback: [openai, gemini]    # tried in order on quota/rate errors
+  agents:                       # per-agent overrides (provider or provider/model)
+    business:     claude/claude-sonnet-4-6
+    architecture: gemini/gemini-2.0-flash
+    security:     openai/gpt-4.1
+    context:      claude/claude-sonnet-4-6
 
+# Built-in providers
 claude:
   model: claude-sonnet-4-6
-  api_key_env: CLAUDE_API_KEY   # env var holding your Anthropic key
+  api_key_env: CLAUDE_API_KEY
 
 openai:
   model: gpt-4.1
-  api_key_env: OPENAI_API_KEY   # env var holding your OpenAI key
+  api_key_env: OPENAI_API_KEY
+
+gemini:
+  model: gemini-2.0-flash
+  api_key_env: GEMINI_API_KEY
+
+# Custom OpenAI-compatible providers
+custom_providers:
+  kimi:
+    base_url: https://api.moonshot.cn/v1
+    api_key_env: KIMI_API_KEY
+    model: moonshot-v1-8k
+  groq:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+    model: llama-3.3-70b-versatile
 
 review:
-  max_tokens: 20000             # max tokens sent to the model per agent
-  max_findings: 20              # max findings returned per review
+  max_tokens: 20000
+  max_findings: 20
 
 github:
   default_account: personal
@@ -302,9 +340,9 @@ github:
 
 ---
 
-### Repo Config (`.aiv/config.yml`)
+### Repo Config
 
-Created in each repository by `aiv init`. Overrides global defaults for that repo.
+`.aiv/config.yml` — created per repository by `aiv init`.
 
 ```yaml
 github:
@@ -317,13 +355,11 @@ review:
   max_findings: 30
 ```
 
-Leave any field out to inherit from global config. The `account` field references a named account defined in `~/.aiv/config.yml`.
-
 ---
 
-### Rules (`.aiv/rules.yml`)
+### Rules
 
-Defines custom rules that all agents respect. Edit after `aiv init`.
+`.aiv/rules.yml` — custom review rules passed to every agent on every review.
 
 ```yaml
 sensitive_modules:
@@ -345,25 +381,27 @@ business_rules:
       - directDbWrite
 ```
 
-Rules are passed verbatim to every agent on every review. The business and security agents use them to flag violations explicitly.
+The more specific your rules, the fewer false positives and the more actionable the findings.
 
 ---
 
-### Context (`.aiv/context.md`)
+### Context
 
-Auto-generated by `aiv init` and `aiv context refresh`. Contains a summary of the project that agents use as background knowledge before reading the diff. You can append custom sections manually — they are preserved on the next refresh.
+`.aiv/context.md` — project background that agents read before analyzing the diff.
+
+Auto-generated by `aiv init`, `aiv context refresh`, and `aiv context generate`. You can edit it freely — the richer this file, the more accurate the findings.
 
 ```markdown
 ## Business Context
 
-This is an e-commerce platform handling real-money transactions.
-All changes touching `src/payments/` must include an audit log entry.
-The `UserBalance` model must never be modified outside the `billing` module.
+E-commerce platform handling real-money transactions.
+All changes in `src/payments/` must include an audit log entry.
+`UserBalance` must never be modified outside the `billing` module.
 
 ## Architecture
 
 Three-layer: HTTP handlers → service layer → repositories.
-Cross-layer imports are forbidden; services must not import from handlers.
+Services must not import from handlers.
 
 ## Sensitive Zones
 
@@ -371,69 +409,36 @@ Cross-layer imports are forbidden; services must not import from handlers.
 - src/payments/ — Stripe integration, never bypass PaymentGateway
 ```
 
-The richer this file, the more accurate the agent findings.
-
 ---
 
 ## GitHub Account Management
 
-aiv supports multiple GitHub accounts (personal, work, CI bot) stored globally and activated per repo.
-
 ### Add accounts
 
 ```bash
-# Minimum — just the env var name
 aiv config add-account personal --token-env GITHUB_TOKEN
-
-# With optional metadata
 aiv config add-account work \
   --token-env GITHUB_TOKEN_WORK \
   --username alice-corp \
-  --description "Work GitHub account"
-
-# Overwrite an existing account
-aiv config add-account work --token-env NEW_VAR --force
+  --description "Work GitHub"
+aiv config add-account work --token-env NEW_VAR --force   # overwrite
 ```
 
-### List accounts
+### Manage accounts
 
 ```bash
-aiv config accounts
-```
-
-Shows all configured accounts, their token env vars, which ones are set, and which is the global default.
-
-### Set global default
-
-```bash
-aiv config default-account work
-```
-
-All repos without an explicit account override will use this account.
-
-### Use a specific account for one repo
-
-```bash
-cd my-work-repo
-aiv config use-account work
-```
-
-This writes `github.account: work` into `.aiv/config.yml`. Only affects the current repo.
-
-### Remove an account
-
-```bash
+aiv config accounts                     # list all accounts + token status
+aiv config default-account work         # set global default
+aiv config use-account work             # use this account for current repo
 aiv config remove-account old-account
 ```
 
 ### Account resolution order
 
-When aiv needs a GitHub token it checks:
-
-1. `github.account` in `.aiv/config.yml` (repo-level override)
+1. `github.account` in `.aiv/config.yml`
 2. `github.default_account` in `~/.aiv/config.yml`
-3. First account listed in `~/.aiv/config.yml`
-4. Fallback to `GITHUB_TOKEN` env var directly
+3. First account in `~/.aiv/config.yml`
+4. `GITHUB_TOKEN` env var directly
 
 ---
 
@@ -443,9 +448,9 @@ aiv supports three kinds of providers:
 
 | Type | Examples | Notes |
 |------|----------|-------|
-| **Built-in** | Claude, OpenAI, Gemini | Native adapters, configured in `~/.aiv/config.yml` |
-| **OpenAI-compatible** | Kimi, Groq, Mistral, DeepSeek, Ollama, Together AI, … | Any new provider with a compatible endpoint — no code changes |
-| **Mock** | — | Deterministic offline responses for testing |
+| **Built-in** | Claude, OpenAI, Gemini | Native adapters, no extra setup |
+| **OpenAI-compatible** | Kimi, Groq, Mistral, DeepSeek, Ollama, … | Any provider with a compatible endpoint |
+| **Mock** | — | Deterministic offline responses |
 
 ---
 
@@ -456,7 +461,7 @@ export CLAUDE_API_KEY=sk-ant-...
 aiv config set-provider claude
 ```
 
-Update model or key env without editing the file:
+Update model or key env:
 
 ```bash
 aiv config add-provider claude --model claude-opus-4-7
@@ -464,7 +469,6 @@ aiv config add-provider claude --api-key-env MY_CLAUDE_KEY
 ```
 
 ```yaml
-# ~/.aiv/config.yml
 claude:
   model: claude-sonnet-4-6
   api_key_env: CLAUDE_API_KEY
@@ -489,17 +493,12 @@ openai:
 
 ### Google Gemini
 
-Gemini uses a dedicated REST adapter (no extra SDK required).
+Gemini uses a dedicated REST adapter — no extra SDK or dependency required.
 
 ```bash
 export GEMINI_API_KEY=AIza...
 aiv config set-provider gemini
-```
-
-Update model:
-
-```bash
-aiv config add-provider gemini --model gemini-2.0-flash-exp
+aiv config add-provider gemini --model gemini-2.0-flash-exp   # change model
 ```
 
 ```yaml
@@ -510,27 +509,24 @@ gemini:
 
 ---
 
-### OpenAI-compatible providers (custom)
+### OpenAI-compatible providers
 
-Any provider that exposes an OpenAI-compatible API can be registered with one command. This includes every new provider that adopts the OpenAI spec — no code changes or updates needed.
+Any provider that exposes an OpenAI-compatible API can be registered with one command — no code changes needed when new providers launch.
 
 ```bash
 # Kimi (Moonshot AI)
-export KIMI_API_KEY=sk-...
 aiv config add-provider kimi \
   --base-url https://api.moonshot.cn/v1 \
   --api-key-env KIMI_API_KEY \
   --model moonshot-v1-8k
 
 # Groq
-export GROQ_API_KEY=gsk_...
 aiv config add-provider groq \
   --base-url https://api.groq.com/openai/v1 \
   --api-key-env GROQ_API_KEY \
   --model llama-3.3-70b-versatile
 
 # Mistral
-export MISTRAL_API_KEY=...
 aiv config add-provider mistral \
   --base-url https://api.mistral.ai/v1 \
   --api-key-env MISTRAL_API_KEY \
@@ -548,26 +544,19 @@ aiv config add-provider together \
   --api-key-env TOGETHER_API_KEY \
   --model meta-llama/Llama-3-70b-chat-hf
 
-# Ollama (local, no key needed)
+# Ollama (local, no key required)
 aiv config add-provider ollama \
   --base-url http://localhost:11434/v1 \
   --api-key-env OLLAMA_API_KEY \
   --model llama3.2
 ```
 
-Once registered, use any custom provider exactly like a built-in:
+Once registered, custom providers work exactly like built-ins:
 
 ```bash
 aiv config set-provider kimi
-aiv config set-agent-provider security groq/llama-3.3-70b-versatile
-aiv config set-fallback groq openai
-```
-
-Manage custom providers:
-
-```bash
-aiv config list-providers                   # show all built-in + custom
-aiv config remove-provider kimi             # remove a custom provider
+aiv config list-providers                    # built-ins + custom
+aiv config remove-provider kimi
 aiv config add-provider kimi --model moonshot-v1-32k --force  # update
 ```
 
@@ -575,7 +564,7 @@ aiv config add-provider kimi --model moonshot-v1-32k --force  # update
 
 ### Per-agent provider assignment
 
-Run each agent with a different provider or model:
+Each agent (and the context generator) can use a different provider or model:
 
 ```bash
 aiv config set-agent-provider business    claude/claude-sonnet-4-6
@@ -583,28 +572,30 @@ aiv config set-agent-provider security    openai/gpt-4.1
 aiv config set-agent-provider architecture gemini/gemini-2.0-flash
 aiv config set-agent-provider context     kimi/moonshot-v1-8k
 
+# Use just a provider name (uses that provider's default model)
+aiv config set-agent-provider business groq
+
 # View current assignments
 aiv config show-agents
 
-# Remove an override (reverts to default)
+# Remove override (reverts to default provider)
 aiv config set-agent-provider business --clear
 ```
+
+Valid agent roles: `business`, `architecture`, `security`, `context`.
 
 ---
 
 ### Fallback chain
 
-If a provider hits a rate limit or quota error, aiv automatically switches to the next in the chain:
+If any provider hits a rate limit or quota error (HTTP 429, overloaded, insufficient quota), aiv automatically switches to the next provider in the chain — for the rest of that run.
 
 ```bash
-# Try openai first, then gemini, then kimi
-aiv config set-fallback openai gemini kimi
-
-# Clear the chain
-aiv config set-fallback
+aiv config set-fallback openai gemini groq   # try in this order
+aiv config set-fallback                       # clear the chain
 ```
 
-When a fallback fires, aiv prints:
+When a fallback fires:
 
 ```
   ⚡ "claude" quota/rate limit — switching to "openai"
@@ -618,17 +609,14 @@ When a fallback fires, aiv prints:
 aiv config set-provider mock
 ```
 
-Returns deterministic placeholder findings. Use this to test the CLI locally without consuming API credits.
+Returns deterministic placeholder findings. Use this to test the CLI without consuming API credits.
 
 ---
 
 ## Review Output
 
-A typical review looks like:
-
 ```
   aiv review — PR #42
-
   Account: personal (GITHUB_TOKEN)
 
 ✔ PR loaded: "Add payment retry logic" (8 files)
@@ -649,10 +637,8 @@ A typical review looks like:
   ───────────────
   [HIGH]  Missing idempotency key on retry
           File: src/payments/retry.ts
-          Retry attempts do not include an idempotency key, allowing
-          the payment provider to process the same charge multiple times.
-          Suggestion: Pass a stable idempotency key derived from the
-          original transaction ID.
+          Suggestion: Pass a stable idempotency key derived from
+          the original transaction ID.
 
   Business Risks
   ──────────────
@@ -662,8 +648,6 @@ A typical review looks like:
   Architecture Issues
   ───────────────────
   [MEDIUM]  Direct database write outside billing module
-            src/payments/retry.ts imports UserBalance from outside
-            the billing boundary.
 
   Agent Summaries
   ───────────────
@@ -674,8 +658,6 @@ A typical review looks like:
 
 ### Risk score
 
-Computed as `max_score × 0.6 + average_score × 0.4` across all agents.
-
 | Score  | Label    |
 |--------|----------|
 | 0–25   | LOW      |
@@ -683,62 +665,103 @@ Computed as `max_score × 0.6 + average_score × 0.4` across all agents.
 | 51–75  | HIGH     |
 | 76–100 | CRITICAL |
 
-### JSON output
+Computed as `max_score × 0.6 + average_score × 0.4` across all agents.
 
-Use `--json` to get the full structured result for scripts or CI pipelines:
+### JSON output
 
 ```bash
 aiv review 42 --json | jq '.riskScore'
 aiv review 42 --json > review-42.json
 ```
 
-The JSON shape matches the `ReviewResult` type: `prNumber`, `prTitle`, `riskScore`, `riskLabel`, `executiveSummary`, `agents[]`, `securityIssues[]`, `businessRisks[]`, `architectureIssues[]`, `possibleRegressions[]`.
+Shape: `prNumber`, `prTitle`, `riskScore`, `riskLabel`, `executiveSummary`, `agents[]`, `securityIssues[]`, `businessRisks[]`, `architectureIssues[]`, `possibleRegressions[]`.
+
+`--json` skips the post-review action prompt.
+
+---
+
+## Post-review Actions
+
+After every review in an interactive terminal, aiv asks:
+
+```
+? What would you like to do with this PR?
+❯ ✔  Approve PR
+  ⚑  Request Changes
+  💬  Post as PR comment
+  ────────────────────────────────────────
+  ↩  Skip
+```
+
+- **Approve** — submits an `APPROVE` review to GitHub, then asks if you want to merge:
+
+  ```
+  ? Merge this PR now? (y/N)
+
+  ? Select merge strategy:
+  ❯ Squash and merge
+    Merge commit
+    Rebase and merge
+  ```
+
+  After approving (with or without merge), `context.md` and `tree.json` are refreshed automatically.
+
+- **Request Changes** — submits a `REQUEST_CHANGES` review to GitHub.
+- **Post as PR comment** — publishes the full report as a formatted GitHub comment. The comment includes severity-rated findings, suggestions, and agent summaries. It also embeds the analysis data so aiv can detect it on future runs.
+- **Skip** — does nothing, exits cleanly.
+
+### Analysis cache
+
+When you run `aiv review` on a PR that already has an aiv comment, aiv detects the previous analysis and asks:
+
+```
+  Found a previous aiv analysis on this PR.
+? Use cached analysis? (Y/n)
+```
+
+Choosing yes skips the AI agents entirely and uses the stored result — no API calls, instant output. Choose no to run a fresh analysis (useful after new commits are pushed).
 
 ---
 
 ## Multi-language
 
-aiv supports English and Spanish. All terminal output — errors, spinners, table headers, severity labels — follows the configured language.
-
-### Switch language
+aiv supports English and Spanish. All output — errors, spinners, table headers, severity labels, and AI agent responses — follows the configured language.
 
 ```bash
-# Permanently (saved to ~/.aiv/config.yml)
 aiv config set-lang es
 aiv config set-lang en
 
-# Per-session via env var (overrides config)
-AIV_LANG=es aiv prs
-AIV_LANG=en aiv review 42
+AIV_LANG=es aiv prs      # per-session override
 ```
 
-### Language detection order
+### Detection order
 
 1. `AIV_LANG` environment variable
 2. `lang` in `~/.aiv/config.yml`
-3. System `LANG` environment variable (auto-detected `es_*` locales use Spanish)
+3. System `LANG` variable (`es_*` locales → Spanish)
 4. Default: `en`
 
 ---
 
 ## Environment Variables
 
-| Variable              | Required | Description                                          |
-|-----------------------|----------|------------------------------------------------------|
-| `GITHUB_TOKEN`        | Yes      | GitHub personal access token (default account)       |
-| `CLAUDE_API_KEY`      | Yes*     | Anthropic API key (*required when using Claude)      |
-| `OPENAI_API_KEY`      | Yes*     | OpenAI API key (*required when using OpenAI)         |
-| `AIV_LANG`            | No       | Override display language (`en` or `es`)             |
-| `LANG`                | No       | System locale (auto-detected by aiv)                 |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GITHUB_TOKEN` | Yes | GitHub personal access token (default account) |
+| `CLAUDE_API_KEY` | Yes* | Anthropic API key (*when using Claude) |
+| `OPENAI_API_KEY` | Yes* | OpenAI API key (*when using OpenAI) |
+| `GEMINI_API_KEY` | Yes* | Google AI API key (*when using Gemini) |
+| `AIV_LANG` | No | Override display language (`en` or `es`) |
+| `LANG` | No | System locale (auto-detected by aiv) |
 
-For additional GitHub accounts, the env var name is whatever you passed to `--token-env`:
+For custom providers, the env var name is whatever you passed to `--api-key-env`.
 
-```bash
-export GITHUB_TOKEN_WORK=ghp_...
-aiv config add-account work --token-env GITHUB_TOKEN_WORK
-```
+### GitHub token permissions
 
-GitHub tokens require `repo` scope to read pull requests and diffs.
+| Scope | Required for |
+|-------|-------------|
+| `repo` (private repos) or `public_repo` | Reading PRs and diffs |
+| `pull_requests: write` (fine-grained PAT) | Submitting reviews, posting comments, merging |
 
 ---
 
@@ -746,101 +769,75 @@ GitHub tokens require `repo` scope to read pull requests and diffs.
 
 ### `Not initialized. Run aiv init first.`
 
-You ran a command that requires `.aiv/config.yml` but it doesn't exist in the current directory.
+`.aiv/config.yml` does not exist in the current directory.
 
 ```bash
-cd your-repo
-aiv init
+cd your-repo && aiv init
 ```
 
 ---
 
 ### `Missing env var: GITHUB_TOKEN (account: default)`
 
-The token env var for the active account is not set in the environment.
-
-```bash
-export GITHUB_TOKEN=ghp_...
-```
-
-If you use a named account with a different env var, check which account is active and what it expects:
+The token env var for the active account is not set. Check which variable name the account expects:
 
 ```bash
 aiv config accounts
+```
+
+Then set it (once, permanently on Windows):
+
+```powershell
+[System.Environment]::SetEnvironmentVariable("GITHUB_TOKEN", "ghp_...", "User")
 ```
 
 ---
 
 ### `Missing env var: CLAUDE_API_KEY`
 
-The AI provider API key is not set. Set the env var or switch providers:
-
 ```bash
 export CLAUDE_API_KEY=sk-ant-...
-# or switch to OpenAI
+# or switch providers:
 aiv config set-provider openai
-export OPENAI_API_KEY=sk-...
+```
+
+---
+
+### `Unknown provider: "xyz".`
+
+```bash
+aiv config list-providers
+aiv config add-provider xyz --base-url <url> --api-key-env XYZ_API_KEY --model <model>
 ```
 
 ---
 
 ### `Could not detect GitHub owner/repo.`
 
-aiv could not parse the GitHub owner and repo from `git remote get-url origin`. This happens when the remote is not a GitHub URL, the repo has no remote, or the remote uses an unsupported format.
-
-Fix — pass flags directly:
 ```bash
 aiv prs --owner myorg --repo myrepo
-aiv review 42 --owner myorg --repo myrepo
-```
-
-Fix — set permanently in repo config:
-```bash
+# or set permanently:
 aiv config set-repo myorg myrepo
-```
-
----
-
-### `Account "xyz" not found.`
-
-You referenced an account name that doesn't exist in `~/.aiv/config.yml`.
-
-```bash
-aiv config accounts                               # list what's available
-aiv config add-account xyz --token-env MY_TOKEN  # add the missing account
-```
-
----
-
-### `Account "xyz" already exists. Use --force to overwrite.`
-
-```bash
-aiv config add-account xyz --token-env NEW_VAR --force
 ```
 
 ---
 
 ### `Failed to fetch PR: ...`
 
-Network or GitHub API error. Common causes:
-
-- Token lacks `repo` scope — regenerate with full repo permissions
-- PR number does not exist in the target repository
-- GitHub rate limit hit — wait or switch to a token with higher limits
-- Wrong `owner`/`repo` — verify with `aiv config show`
+- Token lacks `repo` scope — regenerate with the correct scopes
+- PR number doesn't exist in this repo
+- GitHub rate limit — wait or switch to a different account
+- Wrong owner/repo — verify with `aiv config show`
 
 ---
 
 ### `Review failed: ...`
 
-The AI provider returned an error. Common causes:
-
-- API key is invalid or expired
-- Model quota exceeded
-- Network timeout on a very large diff — reduce `max_tokens` in config:
+- API key invalid or expired
+- Model quota exceeded — configure a [fallback chain](#fallback-chain)
+- Diff too large — reduce `max_tokens` in `.aiv/config.yml`:
 
 ```yaml
-# .aiv/config.yml
 review:
   max_tokens: 10000
 ```
@@ -849,56 +846,69 @@ review:
 
 ## Best Practices
 
-### Fill in context before the first review
+### Let AI bootstrap your context and rules
 
-After `aiv init`, open `.aiv/context.md` and describe your project: what it does, which modules are critical, invariants that must never be violated. This is the single most impactful thing you can do to improve finding accuracy.
+Right after `aiv init`, run:
 
-### Define rules for your domain
+```bash
+aiv context generate
+```
 
-Add a rule every time your team agrees on a pattern that reviews should enforce. Rules are passed to every agent on every review — they act as a live checklist that doesn't drift.
+This produces a `context.md` and `rules.yml` based on what the AI infers from your project structure. Tune what it gets wrong rather than writing from scratch.
+
+### Write specific rules
+
+Generic rules produce generic findings. The more specific `rules.yml` is, the more precise the business agent becomes:
 
 ```yaml
 business_rules:
   orders:
-    required_calls:
-      - validateInventory
-    forbidden_patterns:
-      - skipFraudCheck
+    required_calls: [validateInventory, reserveStock]
+    forbidden_patterns: [skipFraudCheck, directInventoryWrite]
 ```
 
-### Refresh context after major changes
+### Post the report as a PR comment
+
+After reviewing, choose **Post as PR comment** to make the findings visible to the whole team directly in GitHub. The comment is also used as a cache — the next time anyone runs `aiv review` on the same PR, aiv detects it and offers to skip the AI calls.
+
+### Refresh context after structural changes
 
 ```bash
 aiv context refresh
 ```
 
-Run this after merging a large refactor, adding a new module, or changing the project structure significantly. Stale context silently reduces finding quality.
+Run after merging large refactors, adding new modules, or reorganizing the project layout.
 
-### Use `--agent` to narrow the focus
-
-Not every PR needs all three agents. If you're reviewing a dependency bump, only security matters. If it's a UI-only change, skip security and architecture:
+### Use a fallback chain for reliability
 
 ```bash
-aiv review 101 --agent security
-aiv review 202 --agent business architecture
+aiv config set-fallback openai gemini
 ```
 
-Fewer agents means faster results and lower API cost.
+If your primary provider is rate-limited mid-review, aiv switches automatically without losing the run.
 
-### Use named accounts from day one
+### Match model to task
 
-Even with a single GitHub account, naming it makes configuration explicit and makes it trivial to add a second account later:
+Use a fast/cheap model for straightforward agents and a stronger one for the most critical:
 
 ```bash
-aiv config add-account personal \
-  --token-env GITHUB_TOKEN \
-  --username alice \
-  --description "Personal GitHub"
+aiv config set-agent-provider business    claude/claude-haiku-4-5
+aiv config set-agent-provider architecture claude/claude-haiku-4-5
+aiv config set-agent-provider security    claude/claude-sonnet-4-6
 ```
+
+### Use `--agent` to narrow focus
+
+```bash
+aiv review 101 --agent security           # dependency bump — only security matters
+aiv review 202 --agent business architecture  # domain change
+```
+
+Fewer agents = faster, cheaper, more focused output.
 
 ### Commit `.aiv/` to the repository
 
-Committing `config.yml`, `rules.yml`, and `context.md` means every team member gets identical review behavior without any manual setup. Add only `tree.json` to `.gitignore` since it's a generated snapshot:
+Committing `config.yml`, `rules.yml`, and `context.md` means every team member gets identical review behavior with no local setup. Only exclude `tree.json`:
 
 ```
 # .gitignore
@@ -907,23 +917,23 @@ Committing `config.yml`, `rules.yml`, and `context.md` means every team member g
 
 `aiv init` adds this entry automatically.
 
-### Integrate into CI with `--json`
+### CI integration with `--json`
 
 ```bash
 SCORE=$(aiv review $PR_NUMBER --json | jq '.riskScore')
 if [ "$SCORE" -gt 75 ]; then
-  echo "High-risk PR — human review required before merge"
+  echo "High-risk PR — human review required"
   exit 1
 fi
 ```
 
 ### What aiv is not
 
-- Not a linter or formatter — it won't tell you about semicolons
-- Not a replacement for static analysis tools (ESLint, SonarQube)
-- Not checking code style
+- Not a linter — it won't flag semicolons or indentation
+- Not a replacement for static analysis (ESLint, SonarQube)
+- Not a style checker
 
-Its value is **semantic understanding**: catching what automated tools miss — business rule violations, architectural drift, and security risks that only make sense in context.
+Its value is **semantic understanding**: catching business rule violations, architectural drift, and security risks that automated tools miss because they don't know your project's context, rules, or intent.
 
 ---
 
@@ -931,20 +941,30 @@ Its value is **semantic understanding**: catching what automated tools miss — 
 
 ```
 src/
-  agents/          — business, architecture, security (extend BaseAgent)
+  agents/          — business, architecture, security reviewers
   cli/
-    commands/      — one file per command (init, prs, review, config, context, agents)
+    commands/      — init, prs, review, config, context, agents
     banner.ts      — ASCII welcome banner
-    renderer.ts    — review result pretty-printer
-    selector.ts    — interactive PR picker (inquirer)
+    renderer.ts    — terminal renderer + GitHub comment builder
+    selector.ts    — interactive PR/action picker (inquirer)
   config/          — two-level config load/save/merge
-  context/         — project tree scanner and context builder
-  git/             — GitHub REST client and git remote detection
+  context/
+    builder.ts     — static project analysis
+    generator.ts   — AI-powered context + rules generation
+    manager.ts     — context reader + refreshContextFiles helper
+    tree.ts        — file tree scanner
+  git/             — GitHub REST client + remote detection
   i18n/            — EN/ES translations (all user-facing strings)
   orchestrator/    — runs agents in parallel, aggregates results
-  providers/       — Claude, OpenAI, Mock AI client wrappers
+  providers/
+    claude.ts      — Anthropic adapter
+    openai.ts      — OpenAI adapter (supports custom baseURL)
+    gemini.ts      — Google Gemini REST adapter
+    fallback.ts    — FallbackProvider (quota/rate pivot)
+    factory.ts     — resolves provider by name or agent role
+    mock.ts        — offline test provider
   types.ts         — shared TypeScript interfaces
-  index.ts         — CLI entry point (Commander root)
+  index.ts         — CLI entry point
 ```
 
 ---
