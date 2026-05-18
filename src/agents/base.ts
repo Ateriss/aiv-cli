@@ -41,10 +41,18 @@ export abstract class BaseAgent {
       ? '\n\nIMPORTANT: Respond in Spanish. All string values in the JSON (summary, title, description, suggestion, possibleRegressions) must be written in Spanish.'
       : '';
 
+    const baseBranch = ctx.diff.pr.base;
+    const headBranch = ctx.diff.pr.branch;
+    const isProductionMerge = /^(main|master|production|prod|release)$/i.test(baseBranch);
+    const branchRisk = isProductionMerge
+      ? `⚠️ DIRECT MERGE TO ${baseBranch.toUpperCase()} — apply stricter scrutiny. Findings here affect production.`
+      : `Target: ${baseBranch} (non-production). Calibrate severity accordingly.`;
+
     return `## PR: #${ctx.diff.pr.number} — ${ctx.diff.pr.title}
 
 **Author:** ${ctx.diff.pr.author}
-**Branch:** ${ctx.diff.pr.branch} → ${ctx.diff.pr.base}
+**Merge:** \`${headBranch}\` → \`${baseBranch}\`
+**${branchRisk}**
 **Description:** ${ctx.diff.pr.description ?? 'No description provided.'}
 
 ---
@@ -73,19 +81,19 @@ ${patches}
 
 Analyze the above and return a JSON response matching this schema:
 {
-  "summary": "string — concise summary of your findings",
+  "summary": "2-3 sentences max",
   "findings": [
     {
       "severity": "critical|high|medium|low|info",
       "category": "string",
-      "title": "string",
-      "description": "string",
+      "title": "string — 8 words max",
+      "description": "1-2 sentences max",
       "file": "string (optional)",
-      "suggestion": "string (optional)"
+      "suggestion": "1 sentence max (optional)"
     }
   ],
   "riskScore": 0-100,
-  "possibleRegressions": ["string"]
+  "possibleRegressions": ["one short phrase each"]
 }
 
 Return ONLY valid JSON. No markdown fences, no explanation outside the JSON.${langInstruction}`;
@@ -124,7 +132,7 @@ Return ONLY valid JSON. No markdown fences, no explanation outside the JSON.${la
       agentName: this.agentName,
       findings,
       summary: parsed.summary ?? '',
-      riskScore: Math.max(0, Math.min(100, parseInt(parsed.riskScore ?? '0'))),
+      riskScore: Math.max(0, Math.min(100, Number.parseInt(parsed.riskScore ?? '0'))),
     };
   }
 }

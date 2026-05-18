@@ -6,6 +6,7 @@ import { BusinessReviewer } from '../agents/business';
 import { ArchitectureReviewer } from '../agents/architecture';
 import { SecurityReviewer } from '../agents/security';
 import { BaseAgent, AgentContext } from '../agents/base';
+import { triageAgents } from '../agents/triage';
 import { t } from '../i18n';
 
 export class Orchestrator {
@@ -14,9 +15,16 @@ export class Orchestrator {
     private readonly rules: AivRules,
   ) {}
 
-  async run(prDiff: PRDiff, projectContext: string, agentNames: string[]): Promise<ReviewResult> {
-    const agents = buildAgents(agentNames, this.config);
+  async run(prDiff: PRDiff, projectContext: string, requestedAgents: string[], auto: boolean): Promise<ReviewResult> {
+    const agentNames = auto
+      ? await this.triage(prDiff, requestedAgents)
+      : requestedAgents;
 
+    if (agentNames.length === 0) {
+      return buildEmptyResult(prDiff);
+    }
+
+    const agents = buildAgents(agentNames, this.config);
     const agentCtx: AgentContext = { diff: prDiff, projectContext, rules: this.rules };
     const agentResults = await runAgents(agents, agentCtx);
 
@@ -37,6 +45,44 @@ export class Orchestrator {
       generatedAt: new Date().toISOString(),
     };
   }
+
+  private async triage(prDiff: PRDiff, requested: string[]): Promise<string[]> {
+    const spinner = ora(t().orchestratorTriaging).start();
+    try {
+      const provider = createProviderFor(this.config, 'triage');
+      const result = await triageAgents(prDiff, provider);
+      const selected = result.agents.filter(a => requested.includes(a));
+
+      if (selected.length === 0) {
+        spinner.succeed(chalk.dim(t().orchestratorTriageSkipped));
+      } else {
+        spinner.succeed(chalk.dim(t().orchestratorTriageResult(
+          selected.map(a => chalk.cyan(a)).join(', '),
+          result.reasoning,
+        )));
+      }
+      return selected;
+    } catch {
+      spinner.warn(chalk.yellow('Triage failed — running all agents'));
+      return requested;
+    }
+  }
+}
+
+function buildEmptyResult(prDiff: PRDiff): ReviewResult {
+  return {
+    prNumber: prDiff.pr.number,
+    prTitle: prDiff.pr.title,
+    executiveSummary: t().orchestratorTriageSkipped,
+    riskScore: 0,
+    riskLabel: 'LOW',
+    agents: [],
+    businessRisks: [],
+    architectureIssues: [],
+    securityIssues: [],
+    possibleRegressions: [],
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 function buildAgents(names: string[], config: ResolvedConfig): BaseAgent[] {

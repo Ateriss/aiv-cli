@@ -63,7 +63,7 @@ export function prsCommand(): Command {
         chalk.cyan(`#${pr.number}`),
         truncate(pr.title, 50),
         chalk.dim(pr.author),
-        chalk.dim(pr.branch),
+        chalk.dim(pr.branch) + chalk.dim(' → ') + chalk.cyan(pr.base),
         chalk.green(`+${pr.additions}`) + chalk.dim('/') + chalk.red(`-${pr.deletions}`),
         chalk.dim(formatDate(pr.createdAt)),
       ]);

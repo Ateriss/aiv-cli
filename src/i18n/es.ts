@@ -44,7 +44,7 @@ export const es: TranslationKeys = {
   prsColPR: 'PR',
   prsColTitle: 'Título',
   prsColAuthor: 'Autor',
-  prsColBranch: 'Rama',
+  prsColBranch: 'Rama → Destino',
   prsColChanges: 'Cambios',
   prsColCreated: 'Creado',
   prsFooter: (count: number) => `  Mostrando ${count} PR(s) abierto(s). Ejecuta aiv review <numero-pr> para analizar.\n`,
@@ -110,6 +110,9 @@ export const es: TranslationKeys = {
   accountsRepoHint: '  Config repo:   .aiv/config.yml\n',
 
   // ── orchestrator ───────────────────────────────────────────────────────────
+  orchestratorTriaging: 'Analizando diff para seleccionar agentes...',
+  orchestratorTriageResult: (agents: string, reason: string) => `  Agentes seleccionados: ${agents} — ${reason}`,
+  orchestratorTriageSkipped: 'No se necesitan agentes para este diff.',
   orchestratorRunning: (agent: string) => `  Ejecutando agente ${agent}...`,
   orchestratorDone: (agent: string, count: number, score: number) => `  ${agent} — ${count} hallazgo(s) [puntuación: ${score}]`,
   orchestratorAgentFailed: (agent: string, msg: string) => `  ${agent} falló: ${msg}`,

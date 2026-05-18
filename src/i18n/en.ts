@@ -42,7 +42,7 @@ export const en = {
   prsColPR: 'PR',
   prsColTitle: 'Title',
   prsColAuthor: 'Author',
-  prsColBranch: 'Branch',
+  prsColBranch: 'Branch → Target',
   prsColChanges: 'Changes',
   prsColCreated: 'Created',
   prsFooter: (count: number) => `  Showing ${count} open PR(s). Run aiv review <pr-number> to analyze.\n`,
@@ -108,6 +108,9 @@ export const en = {
   accountsRepoHint: '  Repo config:   .aiv/config.yml\n',
 
   // ── orchestrator ───────────────────────────────────────────────────────────
+  orchestratorTriaging: 'Analyzing diff to select agents...',
+  orchestratorTriageResult: (agents: string, reason: string) => `  Agents selected: ${agents} — ${reason}`,
+  orchestratorTriageSkipped: 'No agents needed for this diff.',
   orchestratorRunning: (agent: string) => `  Running ${agent} agent...`,
   orchestratorDone: (agent: string, count: number, score: number) => `  ${agent} — ${count} finding(s) [score: ${score}]`,
   orchestratorAgentFailed: (agent: string, msg: string) => `  ${agent} failed: ${msg}`,

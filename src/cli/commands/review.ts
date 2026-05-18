@@ -26,6 +26,7 @@ export interface RunReviewOptions {
 export async function runReview(opts: RunReviewOptions): Promise<void> {
   const { prNumber, owner, repo, config, token } = opts;
   const rules = loadRules();
+  const auto = !opts.agents;
   const activeAgents = opts.agents ?? ['business', 'architecture', 'security'];
   const client = new GithubClient(token);
 
@@ -42,7 +43,7 @@ export async function runReview(opts: RunReviewOptions): Promise<void> {
     return;
   }
 
-  const result = await resolveResult(client, { owner, repo, prNumber }, config, rules, prDiff, activeAgents, opts.json);
+  const result = await resolveResult(client, { owner, repo, prNumber }, { config, rules, agents: activeAgents, auto }, prDiff, opts.json);
   if (!result) return;
 
   if (opts.json) {
@@ -70,14 +71,16 @@ export async function runReview(opts: RunReviewOptions): Promise<void> {
 }
 
 interface RepoRef { owner: string; repo: string; prNumber: number; }
+interface AgentOpts { config: ResolvedConfig; rules: ReturnType<typeof loadRules>; agents: string[]; auto: boolean; }
 
 async function resolveResult(
   client: GithubClient,
   ref: RepoRef,
-  config: ResolvedConfig, rules: ReturnType<typeof loadRules>,
+  agentOpts: AgentOpts,
   prDiff: Awaited<ReturnType<GithubClient['getPRDiff']>>,
-  activeAgents: string[], json?: boolean,
+  json?: boolean,
 ): Promise<ReviewResult | null> {
+  const { config, rules, agents: activeAgents, auto } = agentOpts;
   const { owner, repo, prNumber } = ref;
   if (!json && process.stdout.isTTY) {
     const cached = await client.findAivReview(owner, repo, prNumber);
@@ -98,7 +101,7 @@ async function resolveResult(
   console.log(chalk.dim(t().reviewRunningAgents(activeAgents.join(', '))));
 
   try {
-    return await new Orchestrator(config, rules).run(prDiff, context, activeAgents);
+    return await new Orchestrator(config, rules).run(prDiff, context, activeAgents, auto);
   } catch (e: any) {
     console.log(chalk.red(t().reviewFailed(e.message)));
     return null;
