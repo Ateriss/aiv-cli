@@ -1,6 +1,6 @@
 {
-  "name":  "@ateriss_/aiv-cli",
-  "version": "1.0.1",
+  "name": "@ateriss_/aiv-cli",
+  "version": "1.0.2",
   "description": "AI-powered PR reviewer CLI — local-first, multi-agent semantic analysis",
   "main": "dist/index.js",
   "bin": {
@@ -13,7 +13,14 @@
     "start": "node dist/index.js",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["ai", "pr-review", "cli", "github", "claude", "openai"],
+  "keywords": [
+    "ai",
+    "pr-review",
+    "cli",
+    "github",
+    "claude",
+    "openai"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
