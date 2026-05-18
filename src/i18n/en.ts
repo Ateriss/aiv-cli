@@ -205,7 +205,7 @@ export const en = {
   contextGenerateProviderError: (envVar: string) => `Missing AI key: ${envVar}. Check your provider config.`,
 
   // ── precheck command ───────────────────────────────────────────────────────
-  precheckTitle: (branch: string, base: string) => `\n  aiv precheck — ${branch} → ${base}\n`,
+  precheckTitle: (branch: string, base: string) => `\n  aiv check — ${branch} → ${base}\n`,
   precheckNotGitRepo: 'Not a git repository.',
   precheckBuilding: (base: string) => `Building diff against ${base}...`,
   precheckDiffBuilt: (files: number) => `Diff ready: ${files} file(s) changed`,

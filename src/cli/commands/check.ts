@@ -14,6 +14,11 @@ import { renderReview } from '../renderer';
 import { selectPrecheckAction, promptPRDetails } from '../selector';
 import { t } from '../../i18n';
 
+function terminalLink(label: string, filePath: string): string {
+  const url = 'file:///' + filePath.replaceAll('\\', '/');
+  return `]8;;${url}${label}]8;;`;
+}
+
 export function checkCommand(): Command {
   return new Command('check')
     .alias('c')
@@ -82,7 +87,8 @@ export function checkCommand(): Command {
       if (!process.stdout.isTTY) return;
 
       const needsPush = hasUnpushedCommits(cwd, head);
-      const action = await selectPrecheckAction(t().precheckSelectAction, needsPush);
+      const hasFindings = result.riskScore > 0 || result.agents.some(a => a.findings.length > 0);
+      const action = await selectPrecheckAction(t().precheckSelectAction, needsPush, hasFindings);
 
       if (action === 'skip') return;
 
@@ -157,7 +163,8 @@ async function doSaveChecklist(cwd: string, result: ReviewResult, head: string, 
   const spinner = ora(t().precheckSavingChecklist).start();
   try {
     fs.writeFileSync(filePath, content, 'utf8');
-    spinner.succeed(chalk.green(t().precheckChecklistSaved('.aiv/checklist.md')));
+    const link = terminalLink('.aiv/checklist.md', filePath);
+    spinner.succeed(chalk.green(t().precheckChecklistSaved(link)));
   } catch (e: any) {
     spinner.fail(chalk.red(`Failed to save checklist: ${e.message}`));
   }

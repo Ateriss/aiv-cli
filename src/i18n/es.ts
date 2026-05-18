@@ -207,7 +207,7 @@ export const es: TranslationKeys = {
   contextGenerateProviderError: (envVar: string) => `Clave de IA faltante: ${envVar}. Revisa tu config de proveedor.`,
 
   // ── precheck command ───────────────────────────────────────────────────────
-  precheckTitle: (branch: string, base: string) => `\n  aiv precheck — ${branch} → ${base}\n`,
+  precheckTitle: (branch: string, base: string) => `\n  aiv check — ${branch} → ${base}\n`,
   precheckNotGitRepo: 'No es un repositorio git.',
   precheckBuilding: (base: string) => `Construyendo diff contra ${base}...`,
   precheckDiffBuilt: (files: number) => `Diff listo: ${files} archivo(s) modificado(s)`,

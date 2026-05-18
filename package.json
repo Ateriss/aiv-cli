@@ -1,6 +1,6 @@
 {
   "name": "@ateriss_/aiv-cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "AI-powered PR reviewer CLI — local-first, multi-agent semantic analysis",
   "main": "dist/index.js",
   "bin": {
@@ -21,7 +21,7 @@
     "claude",
     "openai"
   ],
-  "author": "",
+  "author": "Alexandra Linares Viña (Ateriss)",
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",

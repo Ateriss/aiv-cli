@@ -96,21 +96,28 @@ export async function selectMergeStrategy(message: string): Promise<MergeStrateg
 
 export type PrecheckAction = 'create_pr' | 'save_checklist' | 'skip';
 
-export async function selectPrecheckAction(message: string, needsPush: boolean): Promise<PrecheckAction> {
+export async function selectPrecheckAction(message: string, needsPush: boolean, hasFindings: boolean): Promise<PrecheckAction> {
   const inquirer = await getInquirer();
   const prLabel = needsPush
     ? chalk.cyan('🚀  Push y crear PR en GitHub')
     : chalk.cyan('🚀  Crear PR en GitHub');
+
+  const checklistChoice = hasFindings
+    ? [{ name: chalk.yellow('📋  Guardar checklist en .aiv/'), value: 'save_checklist', short: 'Guardar Checklist' }]
+    : [];
+
+  const choices = [
+    { name: prLabel, value: 'create_pr', short: 'Crear PR' },
+    ...checklistChoice,
+    new inquirer.Separator('─'.repeat(42)),
+    { name: chalk.dim('↩  Skip'), value: 'skip', short: 'Skip' },
+  ];
+
   const answers = await inquirer.prompt([{
     type: 'list',
     name: 'action',
     message,
-    choices: [
-      { name: prLabel,                                         value: 'create_pr',      short: 'Crear PR' },
-      { name: chalk.yellow('📋  Guardar checklist en .aiv/'), value: 'save_checklist', short: 'Guardar Checklist' },
-      new inquirer.Separator('─'.repeat(42)),
-      { name: chalk.dim('↩  Skip'),                           value: 'skip',           short: 'Skip' },
-    ],
+    choices,
     pageSize: 4,
     loop: false,
   }]);
