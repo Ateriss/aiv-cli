@@ -3,6 +3,7 @@ import { contextPath, treePath, isInitialized } from '../config';
 import { buildContext } from './builder';
 import { buildTree } from './tree';
 import { PRDiff } from '../types';
+import { queryGraphifyForDiff, hasGraphifyGraph } from './graphify';
 
 export async function refreshContextFiles(cwd: string): Promise<{ treeOk: boolean; contextOk: boolean }> {
   let treeOk = false;
@@ -50,14 +51,18 @@ export class ContextManager {
   buildReviewContext(prDiff: PRDiff): string {
     const context = this.readContext();
 
-    // Filter tree to only nodes relevant to changed files
     const tree = this.readTree();
     const changedPaths = new Set(prDiff.files.map(f => f.filename));
     const relevantTree = tree ? summarizeRelevantTree(tree, changedPaths) : '';
 
+    const graphifyCtx = hasGraphifyGraph(this.cwd)
+      ? queryGraphifyForDiff(this.cwd, prDiff.files.map(f => f.filename))
+      : '';
+
     return [
       context,
       relevantTree ? `\n## Relevant Project Tree\n\`\`\`json\n${relevantTree}\n\`\`\`` : '',
+      graphifyCtx ? `\n## Knowledge Graph — changed file relationships\n${graphifyCtx}` : '',
     ].filter(Boolean).join('\n');
   }
 }

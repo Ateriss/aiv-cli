@@ -1,0 +1,162 @@
+{
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\tsup.config.ts": {
+    "mtime": 1779124118.689542,
+    "hash": "95c513854b70c6bac3ce116f98e7c89e"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\index.ts": {
+    "mtime": 1779146697.269288,
+    "hash": "78b6f392cfb12fcf121cde282c839809"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\types.ts": {
+    "mtime": 1779062465.100248,
+    "hash": "4815cbb682f78e2b89de216e35196d60"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\agents\\architecture.ts": {
+    "mtime": 1779144482.505258,
+    "hash": "71874a68b340d294e1652c832a67e58a"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\agents\\base.ts": {
+    "mtime": 1779138828.972183,
+    "hash": "035c9f55a9aaaf12438953ee640fffe3"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\agents\\business.ts": {
+    "mtime": 1779144471.232761,
+    "hash": "d562e1ef8c5067ca4ecc374dae979e89"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\agents\\index.ts": {
+    "mtime": 1779057905.1569555,
+    "hash": "8997686009bb01d2d8655512849f5c78"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\agents\\security.ts": {
+    "mtime": 1779144493.6234572,
+    "hash": "c491c4eb61db1921e43bbfd0b80ed934"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\agents\\triage.ts": {
+    "mtime": 1779145347.9645753,
+    "hash": "9e01937763ba7e47f66ef9071009bfd8"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cache\\index.ts": {
+    "mtime": 1779058844.9684916,
+    "hash": "5120419305944273c865bc3099b469d7"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\banner.ts": {
+    "mtime": 1779063319.0583236,
+    "hash": "244c52e96bf9611eef8f9e3d8f63a038"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\renderer.ts": {
+    "mtime": 1779132626.3272116,
+    "hash": "19491ddbb3922c86a01c9a8fd2fdd544"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\selector.ts": {
+    "mtime": 1779148192.8546607,
+    "hash": "80ff2abcaf3f15d80e0f6d6de5a4d260"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\commands\\agents.ts": {
+    "mtime": 1779059976.6221797,
+    "hash": "92b8a3878533148e008cf3888d67762d"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\commands\\check.ts": {
+    "mtime": 1779148228.7586513,
+    "hash": "c1ffd863a338e8074e18e086487d387c"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\commands\\config.ts": {
+    "mtime": 1779062671.379799,
+    "hash": "430118c5058d4df4831b44c1609fa60e"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\commands\\context.ts": {
+    "mtime": 1779062030.8358436,
+    "hash": "9ad64fd18fb348eb1da5961b59bb7a39"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\commands\\init.ts": {
+    "mtime": 1779060267.560325,
+    "hash": "5ae6f5f264479be6f212b825f602fb67"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\commands\\prs.ts": {
+    "mtime": 1779139215.3037164,
+    "hash": "a8fbff8ded814aa2b3b4440eae70c7b9"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\cli\\commands\\review.ts": {
+    "mtime": 1779145449.1789503,
+    "hash": "e073738094abeee0f0ca868dba21ea3d"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\config\\index.ts": {
+    "mtime": 1779062499.5863545,
+    "hash": "d6955e2eb070d93d3f718613290a52c9"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\context\\builder.ts": {
+    "mtime": 1779058808.7182605,
+    "hash": "2c9afc4c027da030519ea6f3739b0cab"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\context\\generator.ts": {
+    "mtime": 1779148662.111387,
+    "hash": "422123b804cdb5b1feb529885509208d"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\context\\manager.ts": {
+    "mtime": 1779061442.8463159,
+    "hash": "68f4d4520cdc7096adb521f070a92fcd"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\context\\tree.ts": {
+    "mtime": 1779058813.9593134,
+    "hash": "46364972e52e9a371b423ad802f4e3bd"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\git\\github.ts": {
+    "mtime": 1779145940.9513621,
+    "hash": "40c93484531cc9dcf59c1a7b8ce61eba"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\git\\local.ts": {
+    "mtime": 1779147244.1848102,
+    "hash": "83b63f8fafee769b675add04eb4f553c"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\git\\utils.ts": {
+    "mtime": 1779147631.2691925,
+    "hash": "c1e636611d8ce41e045ce049e4283b09"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\i18n\\en.ts": {
+    "mtime": 1779148199.0253901,
+    "hash": "9bfc411160fda98af36be0cd15fc4e27"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\i18n\\es.ts": {
+    "mtime": 1779148204.1615162,
+    "hash": "8e2dda290298626e895204f69d16052b"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\i18n\\index.ts": {
+    "mtime": 1779059391.1006618,
+    "hash": "df7905b0ed82f8ae6a247f5e327096fb"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\orchestrator\\index.ts": {
+    "mtime": 1779145399.0078192,
+    "hash": "7ade8d5fa953e710092107ff0b3be1b5"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\providers\\base.ts": {
+    "mtime": 1779057829.396662,
+    "hash": "5fe5484dd5b1ccb7b5db6526c1ea4455"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\providers\\claude.ts": {
+    "mtime": 1779057835.3284438,
+    "hash": "c0ffda362192234575a42d39e67bf47a"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\providers\\factory.ts": {
+    "mtime": 1779062541.486216,
+    "hash": "12f95a9c2d0d40db139d03bb2caf8aca"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\providers\\fallback.ts": {
+    "mtime": 1779061978.431334,
+    "hash": "76febfc9defa05f1be9a2e9728bf6644"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\providers\\gemini.ts": {
+    "mtime": 1779062514.0799267,
+    "hash": "48d6875283b961b2995641dea57ca881"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\providers\\mock.ts": {
+    "mtime": 1779057847.9688401,
+    "hash": "14edd2c8bc81caa86717d3a7b32fc55a"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\src\\providers\\openai.ts": {
+    "mtime": 1779062524.8830113,
+    "hash": "619c0d01dc0aa7219b7ac24a73e27609"
+  },
+  "C:\\Users\\alinares\\Documents\\PERSONAL\\aiv-cli\\README.md": {
+    "mtime": 1779147646.7723155,
+    "hash": "51687fba5acf4532017e8e2a49a5aaf5"
+  }
+}
